@@ -1,0 +1,24 @@
+<h1> 休暇申請ダッシュボード
+<form method=post enctype=#{enctype}>
+        ^{dayoffWidget}
+        <button type=submit>申請する
+
+<h2> 申請状況一覧
+<table>
+    <thead>
+        <tr>
+            <th>申請ID
+            <th>from
+            <th>to
+            <th>期間
+            <th>休暇カテゴリ
+            <th>申請理由
+    <tbody>
+        $forall DayoffOrder orderId from to day category reason <- dayoffOrders
+                <tr>
+                    <td>#{orderId}
+                    <td>#{from}
+                    <td>#{to}
+                    <td>#{day}
+                    <td>#{category}
+                    <td>#{reason}

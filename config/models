@@ -1,0 +1,30 @@
+User
+    fullName Text
+    email Text
+HoliDayBalance
+    balance Double
+    user userId
+    category HolidayId
+    UniqueHolidayBalance user category
+Admin
+    user UserId
+Approver
+    user UserId
+HolidayApplication
+    days Double
+    whenFrom Day
+    whenTo Day
+    category HolidayId
+    status
+HolidayApplicationDetail
+    date Day
+    ampm
+HoliDay
+    name Text
+    days Double
+    UniqueHoliday name
+ApproveStatus
+    name
+    UniqueApproveStatus name
+
+ -- By default this file is used in Model.hs (which is imported by Foundation.hs)

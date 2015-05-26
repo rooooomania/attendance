@@ -1,0 +1,15 @@
+/static StaticR Static appStatic
+/auth   AuthR   Auth   getAuth
+
+/favicon.ico FaviconR GET
+/robots.txt RobotsR GET
+
+/ HomeR GET POST
+
+/test TestR GET POST
+/testresult TestResultR GET
+
+-- 休暇申請リソース
+-- /dayoff             DayoffFactoryR  POST
+-- /dayoff/#Int/#Int   DayoffDetailR   GET PUT
+/dayoff/#Int     DayoffR         GET
