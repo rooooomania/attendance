@@ -4,12 +4,34 @@
 /favicon.ico FaviconR GET
 /robots.txt RobotsR GET
 
-/ HomeR GET POST
 
-/test TestR GET POST
-/testresult TestResultR GET
+-- /test TestR GET POST
+-- /testresult TestResultR GET
+
+
+-- ルートリソース
+/ RootR GET
+
+-- ユーザ一覧リソース
+/users UsersR GET POST
+
+-- ユーザリソース
+/user/#UserId UserR GET PUT
+-- /user/#UserId/admin AdminR PUT
+-- /user/#UserId/unadmin UnAdminR PUT
+-- /user/#UserId/approver ApproverR PUT
+-- /user/#UserId/unapprover UnApproverR PUT
+-- /user/#UserId/application GET
+
+-- 承認者リソース
+-- /approver/#UserId GET PUT -- ここで被承認者を決める？
+
+-- 休暇区分リソース
+-- /holidays GET POST
+-- /holiday/#HolidayId GET PUT
 
 -- 休暇申請リソース
--- /dayoff             DayoffFactoryR  POST
--- /dayoff/#Int/#Int   DayoffDetailR   GET PUT
-/dayoff/#Int     DayoffR         GET
+-- /applications ApplicationsR GET POST
+-- /application/#ApplicationId ApplicationR GET
+-- /application/app-search AppSerachR GET 管理者権限？
+/requests RequestsR GET POST

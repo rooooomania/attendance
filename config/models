@@ -1,30 +1,41 @@
 User
-    fullName Text
-    email Text
-HoliDayBalance
+    ident Text
+    password Text Maybe
+    fullName Text Maybe
+    nicname Text Maybe
+    approver UserId Maybe
+    admin Bool default=false Eq Update
+    UniqueUser ident
+    deriving Show Typeable Eq
+HolidayBalance
     balance Double
-    user userId
+    user UserId
     category HolidayId
     UniqueHolidayBalance user category
-Admin
-    user UserId
-Approver
-    user UserId
-HolidayApplication
+-- Admin
+--     user UserId
+-- Approver
+--     user UserId
+--     UniqueApprover user
+--     deriving Eq
+HolidayRequest
     days Double
     whenFrom Day
     whenTo Day
     category HolidayId
-    status
-HolidayApplicationDetail
+    status ApproveStatusId
+    createdAt UTCTime
+    deriving Show
+RequestDetail
     date Day
     ampm
-HoliDay
+    header HolidayRequestId
+Holiday
     name Text
     days Double
     UniqueHoliday name
 ApproveStatus
-    name
+    name Text
     UniqueApproveStatus name
 
  -- By default this file is used in Model.hs (which is imported by Foundation.hs)

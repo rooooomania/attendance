@@ -19,7 +19,6 @@ getDayoffR userId = do
         addStylesheetRemote "http://fonts.googleapis.com/earlyaccess/notosansjapanese.css"
         setTitle "morimoriya"
         $(widgetFile "dayoff")
-
 data DayoffOrder = DayoffOrder
     { orderId        :: !Int
     , dayoffFrom     :: !Text

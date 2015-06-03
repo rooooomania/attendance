@@ -31,9 +31,10 @@ import System.Log.FastLogger                (defaultBufSize, newStdoutLoggerSet,
 -- Import all relevant handler modules here.
 -- Don't forget to add new modules to your cabal file!
 import Handler.Common
-import Handler.Home
-import Handler.Test
-import Handler.Dayoff
+import Handler.Root
+import Handler.Users
+import Handler.User
+import Handler.Requests
 -- This line actually creates our YesodDispatch instance. It is the second half
 -- of the call to mkYesodData which occurs in Foundation.hs. Please see the
 -- comments there for more details.
@@ -89,9 +90,9 @@ makeApplication foundation = do
         }
 
     -- Create the WAI application and apply middlewares
-    appPlain <- toWaiAppPlain foundation
-    return $ logWare $ defaultMiddlewaresNoLogging appPlain
-
+    -- appPlain <- toWaiAppPlain foundation
+    app <- toWaiApp foundation
+    return $ logWare $ defaultMiddlewaresNoLogging app
 -- | Warp settings for the given foundation value.
 warpSettings :: App -> Settings
 warpSettings foundation =

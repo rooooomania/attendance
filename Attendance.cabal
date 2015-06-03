@@ -21,9 +21,10 @@ library
                      Settings
                      Settings.StaticFiles
                      Handler.Common
-                     Handler.Home
-                     Handler.Test
-                     Handler.Dayoff
+                     Handler.Root
+                     Handler.Users
+                     Handler.User
+                     Handler.Requests
 
     if flag(dev) || flag(library-only)
         cpp-options:   -DDEVELOPMENT
@@ -83,6 +84,7 @@ library
                  , containers
                  , vector
                  , time
+                 , foreign-store
 
 executable         Attendance
     if flag(library-only)

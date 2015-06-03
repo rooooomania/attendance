@@ -1,0 +1,24 @@
+$if null reqs
+    <p> 申請はありません
+$else
+    <h1>休暇申請状況
+        <h2>休暇申請
+        <h2>申請一覧
+        <table>
+            <thead>
+                <tr>
+                    <th>日数
+                    <th>From
+                    <th>To
+                    <th>休暇カテゴリ
+                    <th>状況
+                    <th>申請日時
+            <tbody>
+            $forall HolidayRequest days from to _category _status createdAt <- reqs
+                <tr>
+                    <td>#{days}
+                    <td>#{show from}
+                    <td>#{show to}
+                    <td>
+                    <td>
+                    ^{convertToDay createdAt}
