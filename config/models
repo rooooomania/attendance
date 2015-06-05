@@ -25,6 +25,7 @@ HolidayRequest
     category HolidayId
     status ApproveStatusId
     createdAt UTCTime
+    user UserId
     deriving Show
 RequestDetail
     date Day
@@ -34,6 +35,7 @@ Holiday
     name Text
     days Double
     UniqueHoliday name
+    deriving Eq
 ApproveStatus
     name Text
     UniqueApproveStatus name

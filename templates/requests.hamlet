@@ -1,5 +1,6 @@
 $if null reqs
-    <p> 申請はありません
+    <div>
+        <p> 申請はありません
 $else
     <h1>休暇申請状況
         <h2>休暇申請
@@ -14,7 +15,7 @@ $else
                     <th>状況
                     <th>申請日時
             <tbody>
-            $forall HolidayRequest days from to _category _status createdAt <- reqs
+            $forall HolidayRequest days from to _category _status createdAt uid<- reqs
                 <tr>
                     <td>#{days}
                     <td>#{show from}
