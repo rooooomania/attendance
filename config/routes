@@ -10,7 +10,7 @@
 
 
 -- ルートリソース
-/ RootR GET
+/ RootR GET POST
 
 -- ユーザ一覧リソース
 /users UsersR GET POST
@@ -24,14 +24,13 @@
 -- /user/#UserId/application GET
 
 -- 承認者リソース
--- /approver/#UserId GET PUT -- ここで被承認者を決める？
+-- /approver/#UserId GET PUT -- ここで被承認者を決める？それとも承認が必要な申請の一覧を表示する？
 
 -- 休暇区分リソース
 -- /holidays GET POST
 -- /holiday/#HolidayId GET PUT
 
 -- 休暇申請リソース
--- /applications ApplicationsR GET POST
--- /application/#ApplicationId ApplicationR GET
 -- /application/app-search AppSerachR GET 管理者権限？
 /requests RequestsR GET POST
+/request/#HolidayRequestId RequestR GET PUT

@@ -35,9 +35,10 @@ Holiday
     name Text
     days Double
     UniqueHoliday name
-    deriving Eq
+    deriving Eq Show
 ApproveStatus
     name Text
     UniqueApproveStatus name
+    deriving Eq Show
 
  -- By default this file is used in Model.hs (which is imported by Foundation.hs)

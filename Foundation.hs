@@ -46,7 +46,7 @@ instance Yesod App where
     -- Store session data on the client in encrypted cookies,
     -- default session idle timeout is 120 minutes
     makeSessionBackend _ = Just <$> defaultClientSessionBackend
-        120    -- timeout in minutes
+        60    -- timeout in minutes
         "config/client_session_key.aes"
 
     defaultLayout widget = do
@@ -71,6 +71,26 @@ instance Yesod App where
     isAuthorized (AuthR _) _ = return Authorized
     isAuthorized FaviconR _ = return Authorized
     isAuthorized RobotsR _ = return Authorized
+    -- 休暇申請一覧は、管理者のみ参照できる
+    isAuthorized RequestsR _ = do
+        mauth <- maybeAuth
+        case mauth of
+            Nothing -> return AuthenticationRequired
+            Just (Entity uid u)
+                | isAdmin u -> return Authorized
+                | otherwise -> return $ Unauthorized ("このページは表示できません" :: Text)
+    -- 一般ユーザは、自分の休暇申請のみ参照できる
+    isAuthorized (RequestR rid) _ = do
+        mauth <- maybeAuth
+        case mauth of
+            Nothing -> return AuthenticationRequired
+            Just (Entity uid u) -> do
+                r <- runDB $ get404 rid
+                case isAdmin u of
+                    True -> return Authorized
+                    _    -> if holidayRequestUser r == uid
+                                then return Authorized
+                                else return $ Unauthorized ("このページは表示できません" :: Text)
     -- Default to Authorized for now.
     isAuthorized _ _ = return Authorized
 
@@ -102,6 +122,9 @@ instance Yesod App where
 
     makeLogger = return . appLogger
 
+isAdmin :: User -> Bool
+isAdmin = userAdmin
+
 -- How to run database actions.
 instance YesodPersist App where
     type YesodPersistBackend App = SqlBackend
@@ -121,6 +144,7 @@ instance YesodAuth App where
     -- Override the above two destinations when a Referer: header is present
     redirectToReferer _ = True
 
+    -- ユーザ登録していなければ、新たにユーザを作成する
     getAuthId creds = runDB $ do
         x <- getBy $ UniqueUser $ credsIdent creds
         case x of

@@ -8,6 +8,8 @@ $else
         <table>
             <thead>
                 <tr>
+                    <th>申請ID
+                    <th>申請者
                     <th>日数
                     <th>From
                     <th>To
@@ -15,11 +17,14 @@ $else
                     <th>状況
                     <th>申請日時
             <tbody>
-            $forall HolidayRequest days from to _category _status createdAt uid<- reqs
+            $forall Entity hid (HolidayRequest days from to _category status createdAt uid)<- reqs
                 <tr>
+                    <td>
+                        <a href=@{RequestR hid}>#{show (fromSqlKey hid)}
+                    ^{widgetUserIdent uid}
                     <td>#{days}
                     <td>#{show from}
                     <td>#{show to}
                     <td>
-                    <td>
-                    ^{convertToDay createdAt}
+                    ^{widgetApproveStatus status}
+                    ^{widgetUTCTime createdAt}

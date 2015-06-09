@@ -1,7 +1,6 @@
 module Handler.User where
 
 import Import
-import Data.Maybe (fromJust)
 
 -- | 各ユーザの情報を表示する。編集可能なフィールドは、`textField`を用いる。
 userForm :: Maybe User -> Form User

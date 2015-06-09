@@ -1,2 +1,37 @@
-<h1>利用ユーザ一覧と新規登録
-    
+<h1>申請状況
+<table>
+    <thead>
+        <tr>
+            <th>申請ID
+            <th>from
+            <th>to
+            <th>申請期間
+            <th>休暇区分
+            <th>申請状況
+            <th>申請日時
+    <tbody>
+        $forall ((hid, HolidayRequest days from to _ _ at _), category, status) <- requests
+            <tr>
+                <td>
+                    <a href=@{RequestR hid}>#{show (fromSqlKey hid)}
+                <td>#{show from}
+                <td>#{show to}
+                <td>#{days}
+                <td>#{category}
+                <td>#{status}
+                ^{widgetUTCTime at}
+<h1>休暇残高
+<table>
+    <thead>
+        <tr>
+            <th>休暇区分
+            <th>残高
+    <tbody>
+        $forall ((HolidayBalance balance _ _), category) <- balances
+            <tr>
+                <td>#{category}
+                <td>#{balance}
+<h1>休暇申請
+<form method=post enctype=#{enctype}>
+    ^{form}
+    <button type=submit>申請

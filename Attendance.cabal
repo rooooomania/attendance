@@ -25,6 +25,7 @@ library
                      Handler.Users
                      Handler.User
                      Handler.Requests
+                     Handler.Request
 
     if flag(dev) || flag(library-only)
         cpp-options:   -DDEVELOPMENT
