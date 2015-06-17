@@ -86,6 +86,7 @@ library
                  , vector
                  , time
                  , foreign-store
+                 , HTTP
 
 executable         Attendance
     if flag(library-only)

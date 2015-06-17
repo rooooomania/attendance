@@ -9,8 +9,9 @@
             <th>休暇区分
             <th>申請状況
             <th>申請日時
+            <th>取消
     <tbody>
-        $forall ((hid, HolidayRequest days from to _ _ at _), category, status) <- requests
+        $forall ((hid, HolidayRequest days from to _ _ at uid), category, status) <- requests
             <tr>
                 <td>
                     <a href=@{RequestR hid}>#{show (fromSqlKey hid)}
@@ -20,6 +21,12 @@
                 <td>#{category}
                 <td>#{status}
                 ^{widgetUTCTime at}
+                <td>
+                    $if status == "取消"
+                        取消済
+                    $else
+                        <form method=post action=@{CancelR uid hid}?_method=PUT>
+                            <input type=submit value="取消">
 <h1>休暇残高
 <table>
     <thead>

@@ -57,6 +57,11 @@ putRequestR holidayRequestId = do
         FormSuccess ar -> do
             runDB $ do
                 let sid = (entityKey . status) ar
+                let sname = (approveStatusName . entityVal . status) ar
+                Entity uid _ <- getBy404 $ UniqueUser $ user ar
+                Entity cid _ <- getBy404 $ UniqueHoliday $ category ar
+                Entity bid _ <- getBy404 $ UniqueHolidayBalance uid cid
+                when (sname == "取消" || sname == "却下") (update bid [HolidayBalanceBalance +=. (days ar)])
                 update holidayRequestId [HolidayRequestStatus =. sid]
                 setMessage $ toHtml ("承認ステータスを更新しました" :: Text)
             redirect RequestsR -- rollback されないように、インデントに気をつける！

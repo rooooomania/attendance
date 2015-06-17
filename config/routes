@@ -17,6 +17,7 @@
 
 -- ユーザリソース
 /user/#UserId UserR GET PUT
+/user/#UserId/#HolidayRequestId/cancel CancelR PUT
 -- /user/#UserId/admin AdminR PUT
 -- /user/#UserId/unadmin UnAdminR PUT
 -- /user/#UserId/approver ApproverR PUT

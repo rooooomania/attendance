@@ -29,7 +29,8 @@ HolidayRequest
     deriving Show
 RequestDetail
     date Day
-    ampm
+    ampm Text
+    user UserId
     header HolidayRequestId
 Holiday
     name Text

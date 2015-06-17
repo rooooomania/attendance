@@ -54,3 +54,13 @@ putUserR userId = do
     ^{form}
     <button type=submit>編集
 |]
+
+putCancelR :: UserId -> HolidayRequestId -> Handler ()
+putCancelR userId requestId = do
+    runDB $ do
+        Entity aid _ <- getBy404 $ UniqueApproveStatus "取消"
+        h <- get404 requestId
+        Entity bid _ <- getBy404 $ UniqueHolidayBalance userId (holidayRequestCategory h)
+        update requestId [HolidayRequestStatus =. aid]
+        update bid [HolidayBalanceBalance +=. (holidayRequestDays h)]
+    redirect RootR
