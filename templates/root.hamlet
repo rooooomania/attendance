@@ -1,44 +1,54 @@
-<h1>申請状況
-<table>
-    <thead>
-        <tr>
-            <th>申請ID
-            <th>from
-            <th>to
-            <th>申請期間
-            <th>休暇区分
-            <th>申請状況
-            <th>申請日時
-            <th>取消
-    <tbody>
-        $forall ((hid, HolidayRequest days from to _ _ at uid), category, status) <- requests
-            <tr>
-                <td>
-                    <a href=@{RequestR hid}>#{show (fromSqlKey hid)}
-                <td>#{show from}
-                <td>#{show to}
-                <td>#{days}
-                <td>#{category}
-                <td>#{status}
-                ^{widgetUTCTime at}
-                <td>
-                    $if status == "取消"
-                        取消済
-                    $else
-                        <form method=post action=@{CancelR uid hid}?_method=PUT>
-                            <input type=submit value="取消">
-<h1>休暇残高
-<table>
-    <thead>
-        <tr>
-            <th>休暇区分
-            <th>残高
-    <tbody>
-        $forall ((HolidayBalance balance _ _), category) <- balances
-            <tr>
-                <td>#{category}
-                <td>#{balance}
-<h1>休暇申請
-<form method=post enctype=#{enctype}>
-    ^{form}
-    <button type=submit>申請
+<div  .panel .panel-primary>
+    <div .panel-heading>申請状況
+    <div .panel-body>
+        <table .table .table-striped .table-hover>
+            <thead>
+                <tr>
+                    <th>申請ID
+                    <th>from
+                    <th>to
+                    <th>申請期間
+                    <th>休暇区分
+                    <th>申請状況
+                    <th>申請日時
+                    <th>取消
+            <tbody>
+                $forall ((hid, HolidayRequest days from to _ _ at uid), category, status) <- requests
+                    <tr>
+                        <td>
+                            <a href=@{RequestR hid}>#{show (fromSqlKey hid)}
+                        <td>#{show from}
+                        <td>#{show to}
+                        <td>#{days}
+                        <td>#{category}
+                        <td>#{status}
+                        ^{widgetUTCTime at}
+                        <td>
+                            $if status == "取消"
+                                <span .label .label-default>取消済
+                            $else
+                                <form method=post action=@{CancelR uid hid}?_method=PUT>
+                                    <button type=submit .btn .btn-danger .btn-xs>取消
+
+<div .row>
+    <div .col-sm-6>
+        <div .panel .panel-primary>
+            <div .panel-heading>休暇残高
+            <div .panel-body>
+                <table .table .tabel-hover>
+                    <thead>
+                        <tr>
+                            <th>休暇区分
+                            <th>残高
+                    <tbody>
+                        $forall ((HolidayBalance balance _ _), category) <- balances
+                            <tr>
+                                <td>#{category}
+                                <td>#{balance}
+    <div .col-sm-6>
+        <div .panel .panel-primary>
+            <div .panel-heading>休暇申請
+            <div .panel-body>
+                <form role=form method=post enctype=#{enctype}>
+                    ^{form}
+                    <button type=submit .btn .btn-primary >申請

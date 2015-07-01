@@ -1,0 +1,34 @@
+<div .panel .panel-info>
+    <div .panel-heading>承認待ちの休暇申請一覧
+    <div .panel-body>
+        <table .table .table-striped .table-hover>
+            <thead>
+                <tr>
+                    <th>申請番号
+                    <th>申請者
+                    <th>From
+                    <th>To
+                    <th>休暇期間
+                    <th>申請日時
+                    <th>応答
+            <tbody>
+                $forall (requests, ident) <- allRequests
+                    $forall Entity rid (HolidayRequest days from to category status at user) <- requests
+                        <tr>
+                            <td>#{fromSqlKey rid}
+                            <td>#{ident}
+                            <td>#{show from}
+                            <td>#{show to}
+                            <td>#{days}
+                            ^{widgetUTCTime at}
+                            <td>
+                                $if fromSqlKey status == 2
+                                    承認済み
+                                $else
+                                    <ul .list-inline>
+                                        <li>
+                                            <form method=post action=@{ApproveR userId rid}?_method=PUT>
+                                                <button type=submit .btn .btn-default .btn-xs>承認
+                                        <li>
+                                            <form method=post action=@{RejectR userId rid}?_method=PUT>
+                                                <button type=submit .btn .btn-danger .btn-xs>却下

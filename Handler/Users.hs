@@ -12,14 +12,14 @@ data UserRegist = UserRegist
     , holidays :: Double
     } deriving Eq
 
-userForm :: Form UserRegist
-userForm = renderDivs $ UserRegist
-    <$> areq uniqueEmailField "email" Nothing
-    <*> aopt passwordField "パスワード" Nothing
-    <*> aopt textField "氏名" Nothing
-    <*> aopt textField "ニックネーム" Nothing
-    <*> aopt (selectField approvers) "承認者" Nothing
-    <*> areq doubleField "有給休暇（初回付与分）" (Just 20.0)
+userForm :: AForm Handler UserRegist
+userForm = UserRegist
+    <$> areq uniqueEmailField (bfs ("email" :: Text)) Nothing
+    <*> aopt passwordField (bfs ("パスワード" :: Text)) Nothing
+    <*> aopt textField (bfs ("氏名" :: Text)) Nothing
+    <*> aopt textField (bfs ("ニックネーム" :: Text)) Nothing
+    <*> aopt (selectField approvers) (bfs("承認者" :: Text)) Nothing
+    <*> areq doubleField (bfs ("有給休暇（初回付与分）" :: Text)) (Just 20.0)
     where
         -- drop-down リストを動的に作るための関数が`optionsPersist`
         -- 本当は氏名を表示したかったが、氏名はMaybeなので取り急ぎ `ident` を使う
@@ -41,14 +41,14 @@ getUsersR = do
         let uids = map entityKey usersList
         let userValues = map entityVal usersList
         return $ zip uids userValues
-    (form, enctype) <- generateFormPost userForm
+    (form, enctype) <- generateFormPost $ renderBootstrap3 BootstrapBasicForm userForm
     defaultLayout $ do
         $(widgetFile "users")
 
 -- | ユーザを登録し、ルート画面にリダイレクトする
 postUsersR :: Handler Html
 postUsersR = do
-    ((res, form), enctype) <- runFormPost userForm
+    ((res, form), enctype) <- runFormPost $ renderBootstrap3 BootstrapBasicForm userForm
     case res of
         FormSuccess userRegist -> do
             -- User テーブルにレコードを作成する

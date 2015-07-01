@@ -1,3 +1,12 @@
 $maybe msg <- mmsg
-  <div #message>#{msg}
+    <div #message .alert .alert-info .fade .in>
+        <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;
+        #{msg}
+<div>
+    <ol .breadcrumb>
+        $if not (null parents)
+            $forall p <- parents
+                <li>
+                    <a href=@{fst p}>#{snd p}
+        <li>#{title'}
 ^{widget}

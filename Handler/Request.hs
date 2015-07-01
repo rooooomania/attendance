@@ -13,15 +13,15 @@ data ApproveRequest = ApproveRequest
     , user      :: Text
     }
 
-holidayRequestsForm :: (Maybe HolidayRequest, Maybe Holiday, Maybe User, Maybe (Entity ApproveStatus)) -> Form ApproveRequest
-holidayRequestsForm (mhr, mh, mu, ma) = renderDivs $ ApproveRequest
-    <$> areq doubleField "休暇期間" (holidayRequestDays <$> mhr)
-    <*> areq dayField "休暇開始" (holidayRequestWhenFrom <$> mhr)
-    <*> areq dayField "休暇終了" (holidayRequestWhenTo <$> mhr)
-    <*> areq textField "休暇区分" (holidayName <$> mh)
-    <*> areq (selectField status) "承認ステータス" ma
-    <*> areq textField "申請日" ((pack . show . holidayRequestCreatedAt) <$> mhr)
-    <*> areq textField "ユーザ" (userIdent <$> mu)
+holidayRequestsForm :: (Maybe HolidayRequest, Maybe Holiday, Maybe User, Maybe (Entity ApproveStatus)) -> AForm Handler ApproveRequest
+holidayRequestsForm (mhr, mh, mu, ma) = ApproveRequest
+    <$> areq doubleField (bfs ("休暇期間" :: Text)) (holidayRequestDays <$> mhr)
+    <*> areq dayField (bfs ("休暇開始" :: Text)) (holidayRequestWhenFrom <$> mhr)
+    <*> areq dayField (bfs ("休暇終了" :: Text)) (holidayRequestWhenTo <$> mhr)
+    <*> areq textField (bfs ("休暇区分" :: Text)) (holidayName <$> mh)
+    <*> areq (selectField status) (bfs ("承認ステータス" :: Text)) ma
+    <*> areq textField (bfs ("申請日" :: Text)) ((pack . show . holidayRequestCreatedAt) <$> mhr)
+    <*> areq textField (bfs ("ユーザ" :: Text)) (userIdent <$> mu)
   where
     status = optionsPersist [] [Asc ApproveStatusId] approveStatusName
 
@@ -41,18 +41,21 @@ findRequest hid = runDB $ do
 getRequestR :: HolidayRequestId -> Handler Html
 getRequestR holidayRequestId = do
     req <- findRequest holidayRequestId
-    (form, enctype) <- generateFormPost $ holidayRequestsForm req
+    (form, enctype) <- generateFormPost $ renderBootstrap3 BootstrapBasicForm $ holidayRequestsForm req
     defaultLayout $ do
         [whamlet|
-            <form method=post enctype=#{enctype} action=@{RequestR holidayRequestId}?_method=PUT>
-                ^{form}
-                <button type=submit>更新
+            <div .panel .panel-primary>
+                <div .panel-heading>申請内容
+                <div .panel-body>
+                    <form role=form method=post enctype=#{enctype} action=@{RequestR holidayRequestId}?_method=PUT>
+                        ^{form}
+                        <button type=submit>更新
 |]
 
 putRequestR :: HolidayRequestId -> Handler Html
 putRequestR holidayRequestId = do
     req <- findRequest holidayRequestId
-    ((res, form), enctype) <- runFormPost $ holidayRequestsForm req
+    ((res, form), enctype) <- runFormPost $ renderBootstrap3 BootstrapBasicForm $ holidayRequestsForm req
     case res of
         FormSuccess ar -> do
             runDB $ do
@@ -69,7 +72,7 @@ putRequestR holidayRequestId = do
             setMessage $ toHtml ("入力に誤りがあります" :: Text)
             defaultLayout $ do
                 [whamlet|
-                    <form method=post enctype=#{enctype} action=@{RequestR holidayRequestId}?_method=PUT>
+                    <form role=form method=post enctype=#{enctype} action=@{RequestR holidayRequestId}?_method=PUT>
                         ^{form}
                         <button type=submit>更新
 |]

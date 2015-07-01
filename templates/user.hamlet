@@ -1,5 +1,8 @@
+<div .container>
 $maybe user <- muser
-    <h1>#{userIdent user}さんの登録情報
-    <form method=post enctype=#{enctype} action=@{UserR userId}?_method=PUT>
-        ^{form}
-        <button type=submit>編集
+    <div .panel .panel-primary>
+        <div .panel-heading>#{userIdent user}さんの登録情報
+        <div .panel-body>
+            <form role=form method=post enctype=#{enctype} action=@{UserR userId}?_method=PUT>
+                ^{form}
+                <button type=submit>編集

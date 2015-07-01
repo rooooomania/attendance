@@ -4,11 +4,6 @@
 /favicon.ico FaviconR GET
 /robots.txt RobotsR GET
 
-
--- /test TestR GET POST
--- /testresult TestResultR GET
-
-
 -- ルートリソース
 / RootR GET POST
 
@@ -25,7 +20,9 @@
 -- /user/#UserId/application GET
 
 -- 承認者リソース
--- /approver/#UserId GET PUT -- ここで被承認者を決める？それとも承認が必要な申請の一覧を表示する？
+/approver/#UserId ApproverR GET PUT
+/approver/#UserId/#HolidayRequestId/approve ApproveR PUT
+/approver/#UserId/#HolidayRequestId/reject RejectR PUT
 
 -- 休暇区分リソース
 -- /holidays GET POST

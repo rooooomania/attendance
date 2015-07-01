@@ -4,14 +4,8 @@ import Import
 import Data.Time.LocalTime (LocalTime(..), utcToLocalTime, getTimeZone)
 import Data.Time.Calendar
 import Database.Persist.Sql(fromSqlKey)
-
-widgetUTCTime :: UTCTime -> Widget
-widgetUTCTime utc = do
-    zt <- liftIO $ getTimeZone utc
-    let dt@(LocalTime d t) = utcToLocalTime zt utc
-    [whamlet|
-<td>#{show dt}
-|]
+import Handler.Requests(widgetUTCTime)
+import Handler.Common(IsActiveTab(..), showPortalTab)
 
 data RequestForm = RequestForm
     { from :: Day
@@ -39,6 +33,7 @@ widgetUserIdent uid = do
 getRootR :: Handler Html
 getRootR = do
     uid <- requireAuthId
+    u <- runDB $ get404 uid
     requests <- runDB $ selectList [HolidayRequestUser ==. uid] [Asc HolidayRequestWhenFrom] >>= mapM (\(Entity hid h) -> do
         category <- get404 $ holidayRequestCategory h
         status <- get404 $ holidayRequestStatus h
@@ -48,18 +43,19 @@ getRootR = do
         category <- get404 $ holidayBalanceCategory b
         return (b, holidayName category)
         )
-    (form, enctype) <- generateFormPost requestHolidayForm
+    (form, enctype) <- generateFormPost $ renderBootstrap3 BootstrapBasicForm requestHolidayForm
     defaultLayout $ do
-        setTitle $ toHtml $ "ようこそ, " ++ show (fromSqlKey uid) ++ "さん。"
+        setTitle $ toHtml $ "ようこそ, " ++ userIdent u ++ "さん。"
+        showPortalTab Portal
         $(widgetFile "root")
 
 
 -- | 休暇申請フォーム
-requestHolidayForm :: Form RequestForm
-requestHolidayForm = renderDivs $ RequestForm
-    <$> areq dayField "From" Nothing
-    <*> areq dayField "To" Nothing
-    <*> areq (selectField holidays) "休暇区分" Nothing
+requestHolidayForm :: AForm Handler RequestForm
+requestHolidayForm = RequestForm
+    <$> areq dayField (bfs ("From" :: Text)) Nothing
+    <*> areq dayField (bfs ("To" :: Text)) Nothing
+    <*> areq (selectField holidays) (bfs ("休暇区分" :: Text)) Nothing
     where
         holidays = optionsPersist [] [Asc HolidayName] holidayName
 
@@ -69,7 +65,7 @@ requestHolidayForm = renderDivs $ RequestForm
 postRootR :: Handler Html
 postRootR = do
     uid <- requireAuthId
-    ((res, form), enctype) <- runFormPost requestHolidayForm
+    ((res, form), enctype) <- runFormPost $ renderBootstrap3 BootstrapBasicForm requestHolidayForm
     case res of
         FormSuccess requestForm -> do
             let whenFrom = from requestForm

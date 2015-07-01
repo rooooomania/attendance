@@ -12,14 +12,60 @@ import           Data.Text                   (split, unpack)
 import qualified Data.List                   as List
 import           Data.Aeson
 import           Text.Read (read)
-
+import Network.Mail.Mime
+import Network.Mail.Mime.SES
+import System.Random (newStdGen)
+import qualified Data.ByteString.Lazy.UTF8 as LU
+import           Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 
 -- | すべての休暇申請を取得するクエリ自体を、`widget`に含めているので再利用が簡単になる
-allRequests :: Widget
-allRequests = do
+-- allRequests :: Widget
+-- allRequests = do
+--     reqs <- handlerToWidget $ runDB $ do
+--         selectList [] [Asc HolidayRequestCreatedAt]
+--     $(widgetFile "requests")
+
+
+widgetNoop = do
+    [whamlet|
+|]
+
+requestsPerPage :: Maybe Text -> Widget
+requestsPerPage mPageNumber = do
+    let resultPerPage = 10
+    let num = destPage mPageNumber
     reqs <- handlerToWidget $ runDB $ do
-        selectList [] [Asc HolidayRequestCreatedAt]
+        selectList [] [ Asc HolidayRequestCreatedAt
+                      , LimitTo resultPerPage
+                      , OffsetBy $ (num - 1) * resultPerPage
+                      ]
     $(widgetFile "requests")
+  where
+    destPage :: Maybe Text -> Int
+    destPage mPage =
+        case mPage of
+            Just pageNumber  -> read $ T.unpack pageNumber :: Int
+            _ -> 1 :: Int
+
+data Direction = Prev | Next deriving Show
+
+-- | 指定したページが開ける状態（レコードがある）なら、a要素をwidgetとして返す
+getNextPage :: Int -> Direction -> Widget
+getNextPage num _
+    | num <= 0 = widgetNoop
+getNextPage num direction = do
+    let resultPerPage = 10
+    mvalue <- handlerToWidget $
+        runDB $ selectFirst []
+            [ Asc HolidayRequestCreatedAt
+            , OffsetBy $ (num - 1) * resultPerPage
+            ]
+    case mvalue of
+        Just value -> [whamlet|
+<li>
+    <a href=@{RequestsR}?page=#{num}>#{show direction}
+|]
+        _ -> widgetNoop
 
 -- ===============================================================
 
@@ -65,12 +111,12 @@ getWeekdays = undefined
 -- ===============================================================
 
 -- | 休暇申請フォーム
-requestHolidayForm :: Form RequestForm
-requestHolidayForm = renderDivs $ RequestForm
-    <$> areq (selectField users) "申請者" Nothing
-    <*> areq dayField "From" Nothing
-    <*> areq dayField "To" Nothing
-    <*> areq (selectField holidays) "休暇区分" Nothing
+requestHolidayForm :: AForm Handler RequestForm
+requestHolidayForm = RequestForm
+    <$> areq (selectField users) (bfs ("申請者" :: Text)) Nothing
+    <*> areq dayField (bfs ("From" :: Text)) Nothing
+    <*> areq dayField (bfs ("To" :: Text) )Nothing
+    <*> areq (selectField holidays) (bfs ("休暇区分" :: Text)) Nothing
     where
         users = optionsPersist [] [Asc UserIdent] userIdent
         holidays = optionsPersist [] [Asc HolidayName] holidayName
@@ -78,20 +124,29 @@ requestHolidayForm = renderDivs $ RequestForm
 -- | 休暇申請の一覧を表示する
 getRequestsR :: Handler Html
 getRequestsR = do
-    (form, enctype) <- generateFormPost requestHolidayForm
+    -- リクエストパラメータから指定されたページ番号を取得する
+    currentPage <- lookupGetParam "page"
+    (form, enctype) <- generateFormPost $ renderBootstrap3 BootstrapBasicForm requestHolidayForm
     defaultLayout $ do
         [whamlet|
-<form method=post enctype=#{enctype}>
-    ^{form}
-    <button type=submit>申請する
+<div .container>
+    <div .row>
+        <div .col-sm-4>
+            <div .panel .panel-primary>
+                <div .panel-heading>休暇申請
+                <div .panel-body>
+                    <form role=form method=post enctype=#{enctype}>
+                        ^{form}
+                        <button type=submit .btn .btn-primary>申請する
 |]
-        allRequests
+        -- allRequests
+        requestsPerPage currentPage
 
 -- | 特定のユーザに紐づく休暇申請を行う。残高も調整する
 -- | implement registration for RequestDetail.
 postRequestsR :: Handler Html
 postRequestsR = do
-    ((res, form), enctype) <- runFormPost requestHolidayForm
+    ((res, form), enctype) <- runFormPost $ renderBootstrap3 BootstrapBasicForm requestHolidayForm
     case res of
         FormSuccess requestForm -> do
             let Entity uid _ = user requestForm
@@ -121,11 +176,14 @@ postRequestsR = do
                                         return ()
                                         )
                                     return rid
+                                rval <- runDB $ get404 rid
+                                (myApprover $ Entity rid rval) >>= sendMailForApprove
                                 setMessage $ toHtml $ "申請番号 " ++ show (fromSqlKey rid) ++ "を受け付けました"
                                 redirect RequestsR
                             _ -> do
-                                    setMessage $ toHtml $ ("申請期間が重複しています" :: Text)
-                                    redirect RequestsR
+                                -- testSender
+                                setMessage $ toHtml $ ("申請期間が重複しています" :: Text)
+                                redirect RequestsR
                     _ -> do
                         setMessage $ toHtml ("申請期間に誤りがあります" :: Text)
                         redirect RequestsR
@@ -195,6 +253,7 @@ instance FromJSON NationalHoliday where
         let [y, m, d] = split (== '-') date
         let holiday = fromGregorian (read (T.unpack y) :: Integer) (read (T.unpack m) :: Int) (read (T.unpack d) :: Int)
         return $ NationalHoliday holiday
+    parseJSON _ = mzero
 
 theNationalHolidays:: GoogleCalendarResponse -> IO [Day]
 theNationalHolidays res = return $ map date $ response res
@@ -217,3 +276,108 @@ theWeekday s e = do
     gr <- callJsonEndpoint $ GoogleCalendarEndpoint (toJSONDatetime s) (toJSONDatetime e) appkey
     nh <- theNationalHolidays gr
     return $ filter (flip contained nh) $ filter isWeekDay [s..e]
+
+
+-- ==========================================================
+-- | 将来的にはパッケージ化したいが、やり方がわからないのでこのファイルにベタ書きする
+-- SendEmail.hs
+
+-- | 対象の申請者に対して、承認結果を知らせるメールを配信する
+sendMailForUser :: Text -> Entity User -> Handler ()
+sendMailForUser result user = do
+    let email = (userIdent . entityVal) user
+    let ses = SES
+          { sesFrom = "rooooomania@gmail.com"
+          , sesTo = [encodeUtf8 email]
+          , sesAccessKey = "AKIAJAHK2HTHNJB2CIPA"
+          , sesSecretKey = "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"
+          , sesRegion = "us-west-2"
+          }
+    h <- getYesod
+    render <- getUrlRender
+    let rootr = render RootR
+    renderSendMailSES (appHttpManager h) ses Mail
+        { mailHeaders =
+            [("Subject", "no reply")]
+        , mailFrom = Address Nothing "rooooomania@gmail.com"
+        , mailTo = [Address Nothing email]
+        , mailCc = []
+        , mailBcc = []
+        , mailParts = return
+            [ textPart
+            , Part
+               { partType = "text/html; charset=utf-8"
+               , partEncoding = None
+               , partFilename = Nothing
+               , partContent = renderHtml [shamlet|\
+    <p>あなたの休暇申請が #{result} されました。
+    <p>次のリンクをクリックして、内容を確認してください。
+    <p>
+    <a href=#{rootr}>#{rootr}
+    <p> よろしくお願いいたします。
+    |]
+               , partHeaders = []
+               }
+            ]
+        }
+      where
+          textPart = Part "text/plain" None Nothing [] $ LU.fromString $ unlines
+              [ "あなたの休暇申請が？？されました。"
+              , "次のリンクをクリックして、内容を確認してください。"
+            --   , T.unpack rootr
+              ]
+
+-- | 対象の承認者に対して、承認を促すメールを配信する
+--   メールボディには、承認者向けの承認ビューへのリンクを記載する
+sendMailForApprove :: Entity User -> Handler ()
+sendMailForApprove approver = do
+    let email = (userIdent . entityVal) approver
+    let ses = SES
+              { sesFrom = "rooooomania@gmail.com"
+              , sesTo = [encodeUtf8 email]
+              , sesAccessKey = "AKIAJAHK2HTHNJB2CIPA"
+              , sesSecretKey = "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"
+              , sesRegion = "us-west-2"
+              }
+    h <- getYesod
+    render <- getUrlRender
+    let rootr = render (ApproverR $ entityKey approver)
+    renderSendMailSES (appHttpManager h) ses Mail
+        { mailHeaders =
+            [("Subject", "no reply")]
+        , mailFrom = Address Nothing "rooooomania@gmail.com"
+        , mailTo = [Address Nothing email]
+        , mailCc = []
+        , mailBcc = []
+        , mailParts = return
+            [ textPart
+            , Part
+               { partType = "text/html; charset=utf-8"
+               , partEncoding = None
+               , partFilename = Nothing
+               , partContent = renderHtml [shamlet|\
+<p>メンバーが休暇を申請しています。内容を確認してください。
+<p>次のリンクをクリックして、承認者ページに進んでください。
+<p>
+   <a href=#{rootr}>#{rootr}
+<p> よろしくお願いいたします。
+|]
+               , partHeaders = []
+               }
+            ]
+        }
+      where
+          textPart = Part "text/plain" None Nothing [] $ LU.fromString $ unlines
+              [ "メンバーが休暇を申請しています。内容を確認してください。"
+              , "次のリンクをクリックして、承認者ページに進んでください。"
+            --   , T.unpack rootr
+              ]
+
+-- | 休暇申請に紐づく、承認者データを返す
+myApprover :: Entity HolidayRequest -> Handler (Entity User)
+myApprover (Entity rid rval) = runDB $ do
+    let uid = holidayRequestUser rval
+    uval <- get404 $ uid
+    let (Just approverId) = userApprover uval
+    Just approver <- selectFirst [UserId ==. approverId] []
+    return approver

@@ -26,6 +26,7 @@ library
                      Handler.User
                      Handler.Requests
                      Handler.Request
+                     Handler.Approver
 
     if flag(dev) || flag(library-only)
         cpp-options:   -DDEVELOPMENT
@@ -87,6 +88,11 @@ library
                  , time
                  , foreign-store
                  , HTTP
+                 , mime-mail
+                 , mime-mail-ses
+                 , random
+                 , utf8-string
+                 , blaze-html
 
 executable         Attendance
     if flag(library-only)

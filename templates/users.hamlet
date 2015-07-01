@@ -1,26 +1,30 @@
-<h1>登録済みのユーザと新規登録
-<table>
-    <thead>
-        <tr>
-            <th>email
-            <th>氏名
-            <th>ニックネーム
-    <tbody>
-        $forall (uid, user) <- users
-            <tr>
-                <td>
-                    <a href=@{UserR uid}>#{userIdent user}
-                <td>
-                    $maybe fullName <- userFullName user
-                        #{fullName}
-                    $nothing
-                        未記入
-                <td>
-                    $maybe nicName <- userNicname user
-                        #{nicName}
-                    $nothing
-                        未記入
-<div>
-    <form method=post enctype=#{enctype}>
-        ^{form}
-        <button type=submit>登録
+<h1 .lead>登録済みのユーザと新規登録
+
+<div .container>
+    <div .row>
+        <div .container .col-sm-8>
+            <table .table .table-hover>
+                <thead>
+                    <tr>
+                        <th>email
+                        <th>氏名
+                        <th>ニックネーム
+                <tbody>
+                    $forall (uid, user) <- users
+                        <tr>
+                            <td>
+                                <a href=@{UserR uid}>#{userIdent user}
+                            <td>
+                                $maybe fullName <- userFullName user
+                                    #{fullName}
+                                $nothing
+                                    未記入
+                            <td>
+                                $maybe nicName <- userNicname user
+                                    #{nicName}
+                                $nothing
+                                    未記入
+        <div .col-sm-4>
+            <form role=form method=post enctype=#{enctype}>
+                ^{form}
+                <button type=submit .btn .btn-primary  >登録

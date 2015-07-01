@@ -1,13 +1,14 @@
 module Foundation where
 
 import Import.NoFoundation
-import Database.Persist.Sql (ConnectionPool, runSqlPool)
+import Database.Persist.Sql (ConnectionPool, runSqlPool, toSqlKey, fromSqlKey)
 import Text.Hamlet          (hamletFile)
 import Text.Jasmine         (minifym)
 import Yesod.Auth.BrowserId (authBrowserId)
 import Yesod.Default.Util   (addStaticContentExternal)
 import Yesod.Core.Types     (Logger)
 import qualified Yesod.Core.Unsafe as Unsafe
+
 
 -- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -53,6 +54,8 @@ instance Yesod App where
         master <- getYesod
         mmsg <- getMessage
 
+        (title', parents) <- breadcrumbs
+
         -- We break up the default layout into two components:
         -- default-layout is the contents of the body tag, and
         -- default-layout-wrapper is the entire page. Since the final
@@ -61,6 +64,8 @@ instance Yesod App where
 
         pc <- widgetToPageContent $ do
             addStylesheet $ StaticR css_bootstrap_css
+            addScriptRemote "https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"
+            addScript $ StaticR bootstrap_js
             $(widgetFile "default-layout")
         withUrlRenderer $(hamletFile "templates/default-layout-wrapper.hamlet")
 
@@ -71,6 +76,8 @@ instance Yesod App where
     isAuthorized (AuthR _) _ = return Authorized
     isAuthorized FaviconR _ = return Authorized
     isAuthorized RobotsR _ = return Authorized
+    -- 承認リスト画面は、自分の承認リストのみ参照できる
+    isAuthorized (ApproverR uid) _ = return Authorized
     -- 休暇申請一覧は、管理者のみ参照できる
     isAuthorized RequestsR _ = do
         mauth <- maybeAuth
@@ -180,3 +187,20 @@ unsafeHandler = Unsafe.fakeHandlerGetLogger appLogger
 -- https://github.com/yesodweb/yesod/wiki/Sending-email
 -- https://github.com/yesodweb/yesod/wiki/Serve-static-files-from-a-separate-domain
 -- https://github.com/yesodweb/yesod/wiki/i18n-messages-in-the-scaffolding
+
+instance YesodBreadcrumbs App where
+    breadcrumb RootR = return ("トップページ", Nothing)
+    breadcrumb UsersR = return ("ユーザ一覧", Nothing)
+    breadcrumb (UserR uid) = do
+        u <- runDB $ get404 uid
+        if isAdmin u
+            then return (userIdent u, Just RootR)
+            else return (userIdent u, Just UsersR)
+    breadcrumb RequestsR = return ("休暇申請リクエスト一覧", Just RootR)
+    breadcrumb (RequestR hid) =
+        return ("休暇申請番号" ++ (pack. show) (fromSqlKey hid), Just RootR)
+    breadcrumb AuthR{} = return ("", Nothing)
+    breadcrumb (ApproverR uid) = return ("承認対象一覧", Just RootR)
+
+    breadcrumb (ApproveR uid hid) = return ("", Nothing)
+    breadcrumb (RejectR uid hid) = return ("", Nothing)

@@ -3,14 +3,14 @@ module Handler.User where
 import Import
 
 -- | 各ユーザの情報を表示する。編集可能なフィールドは、`textField`を用いる。
-userForm :: Maybe User -> Form User
-userForm muser = renderDivs $ User
-    <$> areq uniqueEmailField "email" {fsAttrs = [("readonly", "")]} (userIdent <$> muser)
-    <*> aopt passwordField "パスワード" (userPassword <$> muser)
-    <*> aopt textField "氏名" (userFullName <$> muser)
-    <*> aopt textField "ニックネーム" (userNicname <$> muser)
-    <*> aopt hiddenField "承認者" (userApprover <$> muser)
-    <*> areq boolField "管理者権限" (userAdmin <$> muser)
+userForm :: Maybe User -> AForm Handler User
+userForm muser = User
+    <$> areq uniqueEmailField (bfs ("email" :: Text)) {fsAttrs = [("readonly", "")]} (userIdent <$> muser)
+    <*> aopt passwordField (bfs ("パスワード" :: Text)) (userPassword <$> muser)
+    <*> aopt textField (bfs ("氏名" :: Text)) (userFullName <$> muser)
+    <*> aopt textField (bfs ("ニックネーム" :: Text)) (userNicname <$> muser)
+    <*> aopt hiddenField (bfs ("承認者" :: Text)) (userApprover <$> muser)
+    <*> areq boolField (bfs ("管理者権限" :: Text)) (userAdmin <$> muser)
     where
         -- 登録アドレスの重複チェックを行うよう、`custom field` をつくる
         uniqueEmailField = checkM isDuplicated emailField
@@ -20,20 +20,20 @@ userForm muser = renderDivs $ User
                 Just _ -> return $ Left ("すでに登録済みのユーザです" :: Text)
                 Nothing -> return $ Right email
 
-userFormUpdate :: Maybe User -> Form User
-userFormUpdate muser = renderDivs $ User
-    <$> areq emailField "email" {fsAttrs = [("readonly", "")]} (userIdent <$> muser)
-    <*> aopt passwordField "パスワード" (userPassword <$> muser)
-    <*> aopt textField "氏名" (userFullName <$> muser)
-    <*> aopt textField "ニックネーム" (userNicname <$> muser)
-    <*> aopt hiddenField "承認者" (userApprover <$> muser)
-    <*> areq boolField "管理者権限" (userAdmin <$> muser)
+userFormUpdate :: Maybe User -> AForm Handler User
+userFormUpdate muser = User
+    <$> areq emailField (bfs ("email" :: Text)) {fsAttrs = [("readonly", "")]} (userIdent <$> muser)
+    <*> aopt passwordField (bfs ("パスワード" :: Text)) (userPassword <$> muser)
+    <*> aopt textField (bfs ("氏名" :: Text)) (userFullName <$> muser)
+    <*> aopt textField (bfs ("ニックネーム" :: Text)) (userNicname <$> muser)
+    <*> aopt hiddenField (bfs ("承認者" :: Text)) (userApprover <$> muser)
+    <*> areq boolField (bfs ("管理者権限" :: Text)) (userAdmin <$> muser)
 
 
 getUserR :: UserId -> Handler Html
 getUserR userId = do
     muser <- runDB $ get userId
-    (form, enctype) <- generateFormPost $ userFormUpdate muser
+    (form, enctype) <- generateFormPost $ renderBootstrap3 BootstrapBasicForm $ userFormUpdate muser
     defaultLayout $ do
         $(widgetFile "user")
 
@@ -41,7 +41,7 @@ getUserR userId = do
 putUserR :: UserId -> Handler Html
 putUserR userId = do
     user <- runDB $ get404 userId
-    ((res,form), enctype) <- runFormPost $ userFormUpdate $ Just user
+    ((res,form), enctype) <- runFormPost $ renderBootstrap3 BootstrapBasicForm $ userFormUpdate $ Just user
     case res of
         FormSuccess userUpdate -> do
             runDB $ update userId [ UserPassword =. userPassword userUpdate, UserFullName =. userFullName userUpdate , UserNicname  =. userNicname  userUpdate, UserApprover =. userApprover userUpdate, UserAdmin =. userAdmin userUpdate ]
