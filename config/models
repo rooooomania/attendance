@@ -12,6 +12,7 @@ HolidayBalance
     user UserId
     category HolidayId
     UniqueHolidayBalance user category
+    deriving Show
 -- Admin
 --     user UserId
 -- Approver

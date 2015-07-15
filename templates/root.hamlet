@@ -24,8 +24,8 @@
                         <td>#{status}
                         ^{widgetUTCTime at}
                         <td>
-                            $if status == "取消"
-                                <span .label .label-default>取消済
+                            $if or [status == "取消", status == "承認", status == "却下"]
+                                <span .label .label-default>不可
                             $else
                                 <form method=post action=@{CancelR uid hid}?_method=PUT>
                                     <button type=submit .btn .btn-danger .btn-xs>取消

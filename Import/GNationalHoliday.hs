@@ -1,22 +1,23 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Import.GNationalHoliday where
--- https://www.fpcomplete.com/school/to-infinity-and-beyond/competition-winners/foursquare-api-example
-import           Data.Aeson
--- import           Data.ByteString.Char8       (pack, unpack)
--- import qualified Data.ByteString.Char8       as BS
--- import           Data.List                   (find, intercalate)
-import qualified Data.List                   as List
-import           Prelude
-import           qualified Data.Text as T
-import           Data.Text                   (split, unpack)
-import           Network.HTTP                (urlEncode)
-import           Network.HTTP.Conduit
 
-import           Control.Applicative         ((<$>))
-import           Control.Monad               (mzero)
-import           Data.Maybe                  (catMaybes)
+import           Data.Aeson
+import qualified Data.List                   as List
+import           Data.Text                   (split, unpack)
+import qualified Data.Text                   as T
 import           Data.Time.Calendar
 import           Data.Time.Calendar.WeekDate (toWeekDate)
+import           Data.Time.LocalTime         (LocalTime (..), getTimeZone,
+                                              utcToLocalTime)
+import           Database.Persist.Sql        (fromSqlKey)
+import           Import
+import           Network.HTTP                (urlEncode)
+import           Network.HTTP.Conduit
+import           Text.Read                   (read)
+
+-- ==========================================================
+-- | 将来的にはパッケージ化したいが、やり方がわからないのでこのファイルにベタ書きする
+-- GNationalHoliday.hs
 
 callJsonEndpoint :: (FromJSON j, Endpoint e) => e -> IO j
 callJsonEndpoint e = do
@@ -55,7 +56,7 @@ instance Endpoint GoogleCalendarEndpoint where
 renderQuery' :: Bool -> [(String, Maybe String)] -> String
 renderQuery' b params = (if b then "?" else "") ++ List.intercalate "&" serializedParams
   where serializedParams = catMaybes $ map renderParam params
-        renderParam (key, Just val) = Just $ key ++ "=" ++ urlEncode val
+        renderParam (key, Just val) = Just $ key ++ "=" ++ Network.HTTP.urlEncode val
         renderParam (_, Nothing) = Nothing
 
 data NationalHoliday = NationalHoliday { date :: Day } deriving Show
@@ -75,6 +76,7 @@ instance FromJSON NationalHoliday where
         let [y, m, d] = split (== '-') date
         let holiday = fromGregorian (read (T.unpack y) :: Integer) (read (T.unpack m) :: Int) (read (T.unpack d) :: Int)
         return $ NationalHoliday holiday
+    parseJSON _ = mzero
 
 theNationalHolidays:: GoogleCalendarResponse -> IO [Day]
 theNationalHolidays res = return $ map date $ response res

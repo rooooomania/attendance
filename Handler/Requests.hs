@@ -3,27 +3,31 @@ module Handler.Requests where
 import Import
 import Data.Time.LocalTime (LocalTime(..), utcToLocalTime, getTimeZone)
 import Database.Persist.Sql(fromSqlKey)
-import           Network.HTTP                (urlEncode)
-import           Network.HTTP.Conduit
-import           Data.Time.Calendar
-import           Data.Time.Calendar.WeekDate (toWeekDate)
 import           qualified Data.Text as T
-import           Data.Text                   (split, unpack)
-import qualified Data.List                   as List
-import           Data.Aeson
 import           Text.Read (read)
-import Network.Mail.Mime
-import Network.Mail.Mime.SES
-import System.Random (newStdGen)
-import qualified Data.ByteString.Lazy.UTF8 as LU
-import           Text.Blaze.Html.Renderer.Utf8 (renderHtml)
+
+import Import.SendMail
+import Import.GNationalHoliday
+
+-- HolidayRequest を JSON 形式で返すために、ToJSON のインスタンスを与える
+instance ToJSON HolidayRequest where
+    toJSON HolidayRequest {..} = object
+        [ "days" .= holidayRequestDays
+        , "from" .= show holidayRequestWhenFrom
+        , "to"   .= show holidayRequestWhenTo
+        , "category" .= holidayRequestCategory
+        , "status" .= holidayRequestStatus
+        , "created_at" .= holidayRequestCreatedAt
+        , "user" .= holidayRequestUser
+        ]
+
 
 -- | すべての休暇申請を取得するクエリ自体を、`widget`に含めているので再利用が簡単になる
--- allRequests :: Widget
--- allRequests = do
---     reqs <- handlerToWidget $ runDB $ do
---         selectList [] [Asc HolidayRequestCreatedAt]
---     $(widgetFile "requests")
+allRequests :: Handler [HolidayRequest]
+allRequests = do
+    reqs <- runDB $ do
+        selectList [] [Asc HolidayRequestId]
+    return $ map entityVal reqs
 
 
 widgetNoop = do
@@ -122,13 +126,16 @@ requestHolidayForm = RequestForm
         holidays = optionsPersist [] [Asc HolidayName] holidayName
 
 -- | 休暇申請の一覧を表示する
-getRequestsR :: Handler Html
+getRequestsR :: Handler TypedContent
 getRequestsR = do
-    -- リクエストパラメータから指定されたページ番号を取得する
-    currentPage <- lookupGetParam "page"
-    (form, enctype) <- generateFormPost $ renderBootstrap3 BootstrapBasicForm requestHolidayForm
-    defaultLayout $ do
-        [whamlet|
+    hs <- allRequests
+    selectRep $ do
+        provideRep $ do
+            -- リクエストパラメータから指定されたページ番号を取得する
+            currentPage <- lookupGetParam "page"
+            (form, enctype) <- generateFormPost $ renderBootstrap3 BootstrapBasicForm requestHolidayForm
+            defaultLayout $ do
+                [whamlet|
 <div .container>
     <div .row>
         <div .col-sm-4>
@@ -140,7 +147,8 @@ getRequestsR = do
                         <button type=submit .btn .btn-primary>申請する
 |]
         -- allRequests
-        requestsPerPage currentPage
+                requestsPerPage currentPage
+        provideJson hs
 
 -- | 特定のユーザに紐づく休暇申請を行う。残高も調整する
 -- | implement registration for RequestDetail.
@@ -154,230 +162,45 @@ postRequestsR = do
             let whenTo = to requestForm
             let Entity cid _ = category requestForm
             Entity aid _ <- runDB $ getBy404 $ UniqueApproveStatus "申請中"
-            createdAt <- liftIO getCurrentTime
-            days <- liftIO $ theWeekday whenFrom whenTo
-            case length days >= 1 of
-                    True -> do
-                        let daysDouble = fromIntegral $ length days :: Double
-                        Entity bid _ <- runDB $ getBy404 $ UniqueHolidayBalance uid cid
-
-                        -- すでに同じ日程で申請していたらエラー
-                        reqestDetails <- runDB $ selectList [RequestDetailUser ==. uid] []
-                        let requested = map (requestDetailDate . entityVal) reqestDetails
-                        case length $ filter (`elem` requested) days of
-                            0 -> do
-                                rid <- runDB $ do
-                                    rid <- insert $ HolidayRequest daysDouble whenFrom whenTo cid aid createdAt uid
-                                    update bid [HolidayBalanceBalance -=. daysDouble]
-                                    -- TODO:申請対象の日付の分だけ、明細レコードを挿入する
-                                    forM_ days (\date -> do
-                                        insert $ RequestDetail date "am" uid rid
-                                        insert $ RequestDetail date "pm" uid rid
-                                        return ()
-                                        )
-                                    return rid
-                                rval <- runDB $ get404 rid
-                                (myApprover $ Entity rid rval) >>= sendMailForApprove
-                                setMessage $ toHtml $ "申請番号 " ++ show (fromSqlKey rid) ++ "を受け付けました"
-                                redirect RequestsR
-                            _ -> do
-                                -- testSender
-                                setMessage $ toHtml $ ("申請期間が重複しています" :: Text)
-                                redirect RequestsR
-                    _ -> do
-                        setMessage $ toHtml ("申請期間に誤りがあります" :: Text)
-                        redirect RequestsR
+            -- ヘルパ関数を使って再利用
+            requestHelper (uid, cid, whenFrom, whenTo, aid, RequestsR)
         _ -> do
             setMessage $ toHtml ("入力に誤りがあります" :: Text)
             redirect RequestsR
 
+-- ヘルパ関数が受け取る引数が多いので、型シノニムを作る
+type RequestInfo = (Key User, Key Holiday, Day, Day, Key ApproveStatus, Route App)
+requestHelper :: RequestInfo -> Handler Html
+requestHelper (uid, cid, from, to, aid, route) = do
+    createdAt <- liftIO getCurrentTime
+    days <- liftIO $ theWeekday from to
 
--- ==========================================================
--- | 将来的にはパッケージ化したいが、やり方がわからないのでこのファイルにベタ書きする
--- GNationalHoliday.hs
+    -- 申請期間の入力が反対となっていたらエラー
+    when (length days <= 0) $ do
+        setMessage $ toHtml ("申請期間に誤りがあります" :: Text)
+        redirect route
 
-callJsonEndpoint :: (FromJSON j, Endpoint e) => e -> IO j
-callJsonEndpoint e = do
-    responseBody <- simpleHttp (buildURI e)
-    case eitherDecode responseBody of
-        Left err -> fail err
-        Right res -> return res
+    let daysDouble = fromIntegral $ length days :: Double
+    Entity bid b <- runDB $ getBy404 $ UniqueHolidayBalance uid cid
 
-toJSONDatetime :: Day -> String
-toJSONDatetime d = showGregorian d ++ "T00:00:00Z"
+    -- 残高が不足していたらエラー
+    when (holidayBalanceBalance b - daysDouble < 0) $ do
+        setMessage $ toHtml $ ("そんなに休めませんよ" :: Text)
+        redirect route
 
--- このアプリのgoogle calendar key
-appkey = "AIzaSyDiMjyHqqWbERHttkzsrvu1WemLIpHay4M"
+    -- すでに同じ日程で申請していたらエラー
+    reqestDetails <- runDB $ selectList [RequestDetailUser ==. uid] []
+    let requested = map (requestDetailDate . entityVal) reqestDetails
+    when ((length $ filter (`elem` requested) days) > 0) $ do
+        setMessage $ toHtml $ ("申請期間が重複しています" :: Text)
+        redirect route
 
--- | aはクエリパラメータを包んだデータ型であり、必要に応じでURIをそれらのパラメータで構築するための型クラス
---   a は、エンドポイントの数だけ実装することになりそう
-class Endpoint a where
-    buildURI :: a -> String
-
--- |
-data GoogleCalendarEndpoint =
-    GoogleCalendarEndpoint { timeMin :: !String, timeMax :: !String, key :: !String }
-
-instance Endpoint GoogleCalendarEndpoint where
-    buildURI GoogleCalendarEndpoint
-        { timeMin = timeMin
-        , timeMax = timeMax
-        , key = key } =
-            let params = [ ("timeMin", Just $ timeMin)
-                         , ("timeMax", Just $ timeMax)
-                         , ("key", Just $ key)
-                         ]
-            in "https://www.googleapis.com/calendar/v3/calendars/ja.japanese%23holiday@group.v.calendar.google.com/events"
-                ++ renderQuery' True params
-
-renderQuery' :: Bool -> [(String, Maybe String)] -> String
-renderQuery' b params = (if b then "?" else "") ++ List.intercalate "&" serializedParams
-  where serializedParams = catMaybes $ map renderParam params
-        renderParam (key, Just val) = Just $ key ++ "=" ++ Network.HTTP.urlEncode val
-        renderParam (_, Nothing) = Nothing
-
-data NationalHoliday = NationalHoliday { date :: Day } deriving Show
-newtype GoogleCalendarResponse =
-        GoogleCalendarResponse { response :: [NationalHoliday] } deriving Show
-
--- | JSONをパースして、祝日リストを作る
-instance FromJSON GoogleCalendarResponse where
-    parseJSON (Object obj) =
-        GoogleCalendarResponse <$> obj .: "items"
-    parseJSON _ = mzero
-
-instance FromJSON NationalHoliday where
-    parseJSON (Object obj) = do
-        (Object start) <- obj .: "start"
-        (String date)  <- start .: "date"
-        let [y, m, d] = split (== '-') date
-        let holiday = fromGregorian (read (T.unpack y) :: Integer) (read (T.unpack m) :: Int) (read (T.unpack d) :: Int)
-        return $ NationalHoliday holiday
-    parseJSON _ = mzero
-
-theNationalHolidays:: GoogleCalendarResponse -> IO [Day]
-theNationalHolidays res = return $ map date $ response res
-
-isWeekDay :: Day -> Bool
-isWeekDay d
-    | w == 6 = False
-    | w == 7 = False
-    | otherwise = True
-  where
-      (_, _, w) = toWeekDate d
-
--- | ある要素とリストをとって、その要素が含まれていなければ`True`を返す
-contained :: Eq a => a -> [a] -> Bool
--- contained word = foldr (\x b -> (x == word) || b) False -- 論理和を取る形で畳み込む
-contained word xs = word `notElem` xs
-
-theWeekday :: Day -> Day -> IO [Day]
-theWeekday s e = do
-    gr <- callJsonEndpoint $ GoogleCalendarEndpoint (toJSONDatetime s) (toJSONDatetime e) appkey
-    nh <- theNationalHolidays gr
-    return $ filter (flip contained nh) $ filter isWeekDay [s..e]
-
-
--- ==========================================================
--- | 将来的にはパッケージ化したいが、やり方がわからないのでこのファイルにベタ書きする
--- SendEmail.hs
-
--- | 対象の申請者に対して、承認結果を知らせるメールを配信する
-sendMailForUser :: Text -> Entity User -> Handler ()
-sendMailForUser result user = do
-    let email = (userIdent . entityVal) user
-    let ses = SES
-          { sesFrom = "rooooomania@gmail.com"
-          , sesTo = [encodeUtf8 email]
-          , sesAccessKey = "AKIAJAHK2HTHNJB2CIPA"
-          , sesSecretKey = "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"
-          , sesRegion = "us-west-2"
-          }
-    h <- getYesod
-    render <- getUrlRender
-    let rootr = render RootR
-    renderSendMailSES (appHttpManager h) ses Mail
-        { mailHeaders =
-            [("Subject", "no reply")]
-        , mailFrom = Address Nothing "rooooomania@gmail.com"
-        , mailTo = [Address Nothing email]
-        , mailCc = []
-        , mailBcc = []
-        , mailParts = return
-            [ textPart
-            , Part
-               { partType = "text/html; charset=utf-8"
-               , partEncoding = None
-               , partFilename = Nothing
-               , partContent = renderHtml [shamlet|\
-    <p>あなたの休暇申請が #{result} されました。
-    <p>次のリンクをクリックして、内容を確認してください。
-    <p>
-    <a href=#{rootr}>#{rootr}
-    <p> よろしくお願いいたします。
-    |]
-               , partHeaders = []
-               }
-            ]
-        }
-      where
-          textPart = Part "text/plain" None Nothing [] $ LU.fromString $ unlines
-              [ "あなたの休暇申請が？？されました。"
-              , "次のリンクをクリックして、内容を確認してください。"
-            --   , T.unpack rootr
-              ]
-
--- | 対象の承認者に対して、承認を促すメールを配信する
---   メールボディには、承認者向けの承認ビューへのリンクを記載する
-sendMailForApprove :: Entity User -> Handler ()
-sendMailForApprove approver = do
-    let email = (userIdent . entityVal) approver
-    let ses = SES
-              { sesFrom = "rooooomania@gmail.com"
-              , sesTo = [encodeUtf8 email]
-              , sesAccessKey = "AKIAJAHK2HTHNJB2CIPA"
-              , sesSecretKey = "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"
-              , sesRegion = "us-west-2"
-              }
-    h <- getYesod
-    render <- getUrlRender
-    let rootr = render (ApproverR $ entityKey approver)
-    renderSendMailSES (appHttpManager h) ses Mail
-        { mailHeaders =
-            [("Subject", "no reply")]
-        , mailFrom = Address Nothing "rooooomania@gmail.com"
-        , mailTo = [Address Nothing email]
-        , mailCc = []
-        , mailBcc = []
-        , mailParts = return
-            [ textPart
-            , Part
-               { partType = "text/html; charset=utf-8"
-               , partEncoding = None
-               , partFilename = Nothing
-               , partContent = renderHtml [shamlet|\
-<p>メンバーが休暇を申請しています。内容を確認してください。
-<p>次のリンクをクリックして、承認者ページに進んでください。
-<p>
-   <a href=#{rootr}>#{rootr}
-<p> よろしくお願いいたします。
-|]
-               , partHeaders = []
-               }
-            ]
-        }
-      where
-          textPart = Part "text/plain" None Nothing [] $ LU.fromString $ unlines
-              [ "メンバーが休暇を申請しています。内容を確認してください。"
-              , "次のリンクをクリックして、承認者ページに進んでください。"
-            --   , T.unpack rootr
-              ]
-
--- | 休暇申請に紐づく、承認者データを返す
-myApprover :: Entity HolidayRequest -> Handler (Entity User)
-myApprover (Entity rid rval) = runDB $ do
-    let uid = holidayRequestUser rval
-    uval <- get404 $ uid
-    let (Just approverId) = userApprover uval
-    Just approver <- selectFirst [UserId ==. approverId] []
-    return approver
+    rid <- runDB $ do
+        rid <- insert $ HolidayRequest daysDouble from to cid aid createdAt uid
+        update bid [HolidayBalanceBalance -=. daysDouble]
+        createRequestDetail days uid rid
+        return rid
+    rval <- runDB $ get404 rid
+    (myApprover $ Entity rid rval) >>= sendMailForApprove
+    setMessage $ toHtml $ "申請番号 " ++ show (fromSqlKey rid) ++ "を受け付けました"
+    redirect route

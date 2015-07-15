@@ -9,6 +9,8 @@ import Yesod.Default.Util   (addStaticContentExternal)
 import Yesod.Core.Types     (Logger)
 import qualified Yesod.Core.Unsafe as Unsafe
 
+import Yesod.Auth.Dummy
+
 
 -- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -76,28 +78,45 @@ instance Yesod App where
     isAuthorized (AuthR _) _ = return Authorized
     isAuthorized FaviconR _ = return Authorized
     isAuthorized RobotsR _ = return Authorized
+
+    isAuthorized route isWrite = do
+        mauth <- maybeAuth
+        runDB $ mauth `isAuthorizedTo` permissionRequiredFor route isWrite
+
     -- 承認リスト画面は、自分の承認リストのみ参照できる
-    isAuthorized (ApproverR uid) _ = return Authorized
-    -- 休暇申請一覧は、管理者のみ参照できる
-    isAuthorized RequestsR _ = do
+    -- isAuthorized (ApproverR uid) _ = do
+    --     mauth <- maybeAuth
+    --     case mauth of
+    --         Nothing -> return AuthenticationRequired
+    --         Just (Entity approverId _) ->
+    --             return $ if uid == approverId then Authorized else Unauthorized ("このページは表示できません" :: Text)
+    -- -- 休暇申請一覧は、管理者のみ参照できる
+    -- isAuthorized RequestsR _ = do
+    --     mauth <- maybeAuth
+    --     case mauth of
+    --         Nothing -> return AuthenticationRequired
+    --         Just (Entity uid u)
+    --             | isAdmin u -> return Authorized
+    --             | otherwise -> return $ Unauthorized ("このページは表示できません" :: Text)
+    -- -- 一般ユーザは、自分の休暇申請のみ参照できる
+    -- isAuthorized (RequestR rid) _ = do
+    --     mauth <- maybeAuth
+    --     case mauth of
+    --         Nothing -> return AuthenticationRequired
+    --         Just (Entity uid u) -> do
+    --             r <- runDB $ get404 rid
+    --             case isAdmin u of
+    --                 True -> return Authorized
+    --                 _    -> if holidayRequestUser r == uid
+    --                             then return Authorized
+    --                             else return $ Unauthorized ("このページは表示できません" :: Text)
+    --
+    -- Write メソッドは、基本的に認証が必要
+    isAuthorized _ True = do
         mauth <- maybeAuth
         case mauth of
             Nothing -> return AuthenticationRequired
-            Just (Entity uid u)
-                | isAdmin u -> return Authorized
-                | otherwise -> return $ Unauthorized ("このページは表示できません" :: Text)
-    -- 一般ユーザは、自分の休暇申請のみ参照できる
-    isAuthorized (RequestR rid) _ = do
-        mauth <- maybeAuth
-        case mauth of
-            Nothing -> return AuthenticationRequired
-            Just (Entity uid u) -> do
-                r <- runDB $ get404 rid
-                case isAdmin u of
-                    True -> return Authorized
-                    _    -> if holidayRequestUser r == uid
-                                then return Authorized
-                                else return $ Unauthorized ("このページは表示できません" :: Text)
+            Just (Entity uid _) -> return Authorized
     -- Default to Authorized for now.
     isAuthorized _ _ = return Authorized
 
@@ -129,8 +148,73 @@ instance Yesod App where
 
     makeLogger = return . appLogger
 
+-- =====================
+-- | 認可制御を抽象化して、単体テストしやすいようにする
+data Permission =
+      ViewApprover UserId
+    | ViewRequests
+    | ViewRequest HolidayRequestId
+    | ViewUsers
+
+permissionRequiredFor :: Route App -> Bool -> [Permission]
+permissionRequiredFor (ApproverR uid) _ = [ViewApprover uid]
+permissionRequiredFor RequestsR _ = [ViewRequests]
+permissionRequiredFor (RequestR rid) _ = [ViewRequest rid]
+
+permissionRequiredFor (AuthR _) _ = []
+permissionRequiredFor FaviconR _ = []
+permissionRequiredFor RobotsR _ = []
+permissionRequiredFor RootR _ = []
+permissionRequiredFor (CancelR _ _) _ = []
+permissionRequiredFor UsersR _ = [ViewUsers]
+
+
+
+hasPermissionTo :: Entity User -> Permission -> YesodDB App AuthResult
+u `hasPermissionTo` (ViewApprover uid) =
+    if entityKey u == uid
+        then return Authorized
+        else  return $ Unauthorized ("このページは表示できません" :: Text)
+u `hasPermissionTo` ViewRequests
+    | isAdmin (entityVal u) = return Authorized
+    | otherwise = return $ Unauthorized ("このページは表示できません" :: Text)
+
+u `hasPermissionTo` (ViewRequest rid) =
+    if isAdmin (entityVal u)
+        then return Authorized
+        else do
+            r <- get404 rid
+            if entityKey u == holidayRequestUser r
+                then return Authorized
+                else return $ Unauthorized ("このページは表示できません" :: Text)
+u `hasPermissionTo` ViewUsers
+    | isAdmin (entityVal u) = return Authorized
+    | otherwise = return $ Unauthorized ("このページは表示できません" :: Text)
+
+isAuthorizedTo :: Maybe (Entity User) -> [Permission] -> YesodDB App AuthResult
+_           `isAuthorizedTo` []     = return Authorized
+Nothing     `isAuthorizedTo` (_:_)  = return AuthenticationRequired
+Just u      `isAuthorizedTo` (p:ps) = do
+    r <- u `hasPermissionTo` p
+    case r of
+        Authorized -> Just u `isAuthorizedTo` ps
+        _ -> return r -- unauthorized
+
+
+
 isAdmin :: User -> Bool
 isAdmin = userAdmin
+
+userIdFromToken :: Handler (Maybe (Key User))
+userIdFromToken = do
+    mtoken <- lookupGetParam "token"
+    case mtoken of
+        Nothing -> return Nothing
+        _ -> do
+            mu <- runDB $ selectFirst [UserPassword ==.  mtoken] []
+            case mu of
+                Just (Entity uid _) -> return $ Just uid
+                _ -> return Nothing
 
 -- How to run database actions.
 instance YesodPersist App where
@@ -151,24 +235,36 @@ instance YesodAuth App where
     -- Override the above two destinations when a Referer: header is present
     redirectToReferer _ = True
 
-    -- ユーザ登録していなければ、新たにユーザを作成する
-    getAuthId creds = runDB $ do
-        x <- getBy $ UniqueUser $ credsIdent creds
-        case x of
-            Just (Entity uid _) -> return $ Just uid
-            Nothing -> Just <$> insert User
-                { userIdent = credsIdent creds
-                , userPassword = Nothing
-                , userFullName = Nothing
-                , userNicname = Nothing
-                , userApprover = Nothing
-                , userAdmin = False
-                }
+    maybeAuthId = do
+        muid <- userIdFromToken
+        case muid of
+            Nothing -> defaultMaybeAuthId
+            _       -> return muid
+
+    getAuthId creds = do
+        Entity uid _ <- runDB $ getBy404 $ UniqueUser $ credsIdent creds
+        return $ Just uid
+        -- ユーザ登録していなければ、新たにユーザを作成する
+        -- case x of
+        --     Just (Entity uid _) -> return $ Just uid
+        --     Nothing -> Just <$> insert User
+        --         { userIdent = credsIdent creds
+        --         , userPassword = Nothing
+        --         , userFullName = Nothing
+        --         , userNicname = Nothing
+        --         , userApprover = Nothing
+        --         , userAdmin = False
+        --         }
 
     -- You can add other plugins like BrowserID, email or OAuth here
-    authPlugins _ = [authBrowserId def]
+    authPlugins m = authPluginBackDoor m [authBrowserId def]
 
     authHttpManager = getHttpManager
+
+authPluginBackDoor :: App -> [AuthPlugin App] -> [AuthPlugin App]
+authPluginBackDoor app =
+    if appAllowDummyAuth (appSettings app) then (authDummy : ) else id
+
 
 instance YesodAuthPersist App
 

@@ -63,4 +63,5 @@ putCancelR userId requestId = do
         Entity bid _ <- getBy404 $ UniqueHolidayBalance userId (holidayRequestCategory h)
         update requestId [HolidayRequestStatus =. aid]
         update bid [HolidayBalanceBalance +=. (holidayRequestDays h)]
+        deleteWhere [RequestDetailDate >=.  holidayRequestWhenFrom h, RequestDetailDate <=. holidayRequestWhenTo h]
     redirect RootR

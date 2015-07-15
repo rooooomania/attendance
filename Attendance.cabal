@@ -17,7 +17,10 @@ library
                      Foundation
                      Import
                      Import.NoFoundation
+                     Import.SendMail
+                     Import.GNationalHoliday
                      Model
+                     Model.RequestDetail
                      Settings
                      Settings.StaticFiles
                      Handler.Common
@@ -104,7 +107,7 @@ executable         Attendance
 
     ghc-options:       -threaded -O2 -rtsopts -with-rtsopts=-N
 
-test-suite test
+test-suite hspectest
     type:              exitcode-stdio-1.0
     main-is:           Spec.hs
     hs-source-dirs:    test
@@ -140,3 +143,7 @@ test-suite test
                  , hspec >= 2.0.0
                  , classy-prelude
                  , classy-prelude-yesod
+                 , hspec-expectations-lifted
+                 , doctest >= 0.10.0
+                 , time >= 1.4
+                 , yesod-persistent > 1.4

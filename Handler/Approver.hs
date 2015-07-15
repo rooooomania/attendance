@@ -4,15 +4,14 @@ import Import
 import Data.Time.LocalTime (LocalTime(..), utcToLocalTime, getTimeZone)
 import Data.Time.Calendar
 import Database.Persist.Sql(toSqlKey, fromSqlKey)
-import Handler.Requests(widgetUTCTime, sendMailForUser)
+import Handler.Requests(widgetUTCTime)
 import Handler.Common(IsActiveTab(..), showPortalTab)
-
+import Import.SendMail
 
 -- | メール内のURIを踏んで、GETメソッドが呼び出される
 --   自分が確認すべき休暇申請のリストと、申請または却下ボタンが表示される
 getApproverR :: UserId -> Handler Html
 getApproverR userId = do
-    aid <- requireAuthId
     -- 休暇申請のリスト
     -- 被承認ユーザの申請リストを検索する。型は m [([Entity HolidayRequest], Text)]
     allRequests <- runDB $
@@ -48,6 +47,7 @@ putRejectR uid hid = do
         u <- get404 $ holidayRequestUser h
         Entity bid _ <- getBy404 $ UniqueHolidayBalance (holidayRequestUser h) (holidayRequestCategory h)
         update bid [HolidayBalanceBalance +=. holidayRequestDays h]
+        deleteWhere [RequestDetailDate >=.  holidayRequestWhenFrom h, RequestDetailDate <=. holidayRequestWhenTo h]
         setMessage $ toHtml $ "申請番号" ++ show (fromSqlKey hid) ++ "を却下しました"
         return $ Entity (holidayRequestUser h) u
     sendMailForUser "却下" user

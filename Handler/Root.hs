@@ -4,8 +4,14 @@ import Import
 import Data.Time.LocalTime (LocalTime(..), utcToLocalTime, getTimeZone)
 import Data.Time.Calendar
 import Database.Persist.Sql(fromSqlKey)
-import Handler.Requests(widgetUTCTime)
+import Handler.Requests(widgetUTCTime, requestHelper)
 import Handler.Common(IsActiveTab(..), showPortalTab)
+
+-- | doctest のサンプル
+--
+-- >>> show 3
+-- "3"
+
 
 data RequestForm = RequestForm
     { from :: Day
@@ -72,21 +78,7 @@ postRootR = do
             let whenTo = to requestForm
             let Entity cid _ = category requestForm
             Entity aid _ <- runDB $ getBy404 $ UniqueApproveStatus "申請中"
-            createdAt <- liftIO getCurrentTime
-            let days = diffDays whenTo whenFrom + 1
-            case days >= 1 of
-                    True -> do
-                        let daysDouble = fromInteger days :: Double
-                        Entity bid _ <- runDB $ getBy404 $ UniqueHolidayBalance uid cid
-                        rid <- runDB $ do
-                            rid <- insert $ HolidayRequest daysDouble whenFrom whenTo cid aid createdAt uid
-                            update bid [HolidayBalanceBalance -=. daysDouble]
-                            return rid
-                        setMessage $ toHtml $ "申請番号 " ++ show (fromSqlKey rid) ++ "を受け付けました"
-                        redirect RootR
-                    _ -> do
-                        setMessage $ toHtml ("申請期間に誤りがあります" :: Text)
-                        redirect RootR
+            requestHelper(uid, cid, whenFrom, whenTo, aid, RootR)
         _ -> do
             setMessage $ toHtml ("入力に誤りがあります" :: Text)
             redirect RootR

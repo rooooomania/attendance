@@ -3,23 +3,35 @@ module TestImport
     , module X
     ) where
 
-import Application           (makeFoundation)
-import ClassyPrelude         as X
-import Database.Persist      as X hiding (get)
-import Database.Persist.Sql  (SqlPersistM, SqlBackend, runSqlPersistMPool, rawExecute, rawSql, unSingle, connEscapeName)
-import Foundation            as X
-import Model                 as X
-import Test.Hspec            as X
-import Text.Shakespeare.Text (st)
-import Yesod.Default.Config2 (ignoreEnv, loadAppSettings)
-import Yesod.Test            as X
+import           Application                    (makeFoundation)
+import           ClassyPrelude                  as X
+import           Database.Persist               as X hiding (get)
+import           Database.Persist.Sql           (SqlBackend, SqlPersistM,
+                                                 connEscapeName, rawExecute,
+                                                 rawSql, runSqlPersistMPool,
+                                                 unSingle)
+import           Foundation                     as X
+import           Model                          as X
+import           Test.Hspec                     as X hiding (expectationFailure,
+                                                      shouldBe, shouldContain,
+                                                      shouldMatchList,
+                                                      shouldReturn,
+                                                      shouldSatisfy)
+import           Text.Shakespeare.Text          (st)
+import           Yesod.Default.Config2          (ignoreEnv, loadAppSettings)
+import           Yesod.Test                     as X
 
 -- Wiping the database
-import Database.Persist.Sqlite              (sqlDatabase, wrapConnection, createSqlPool)
-import qualified Database.Sqlite as Sqlite
-import Control.Monad.Logger                 (runLoggingT)
-import Settings (appDatabaseConf)
-import Yesod.Core (messageLoggerSource)
+import           Control.Monad.Logger           (runLoggingT)
+import           Database.Persist.Sqlite        (createSqlPool, sqlDatabase,
+                                                 wrapConnection)
+import qualified Database.Sqlite                as Sqlite
+import           Settings                       (appDatabaseConf, appRoot)
+import           Test.DocTest                   as X
+import           Test.Hspec.Expectations.Lifted as X
+import           Test.Hspec.QuickCheck          as X
+import           Yesod.Core                     (messageLoggerSource)
+import           Yesod.Persist.Core             as X (get404, getBy404)
 
 runDB :: SqlPersistM a -> YesodExample App a
 runDB query = do
@@ -49,8 +61,8 @@ wipeDB app = do
 
     -- Aside: SQLite by default *does not enable foreign key checks*
     -- (disabling foreign keys is only necessary for those who specifically enable them).
-    let settings = appSettings app   
-    sqliteConn <- rawConnection (sqlDatabase $ appDatabaseConf settings)    
+    let settings = appSettings app
+    sqliteConn <- rawConnection (sqlDatabase $ appDatabaseConf settings)
     disableForeignKeys sqliteConn
 
     let logFunc = messageLoggerSource app (appLogger app)
@@ -72,3 +84,12 @@ getTables :: MonadIO m => ReaderT SqlBackend m [Text]
 getTables = do
     tables <- rawSql "SELECT name FROM sqlite_master WHERE type = 'table';" []
     return (fmap unSingle tables)
+
+authenticateAs :: Entity User -> YesodExample App ()
+authenticateAs (Entity _ u) = do
+    root <- appRoot . appSettings <$> getTestYesod
+
+    request $ do
+        setMethod "POST"
+        addPostParam "ident" $ userIdent u
+        setUrl $ root ++ "/auth/page/dummy"
