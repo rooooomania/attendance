@@ -9,6 +9,8 @@ import System.Random (newStdGen)
 import qualified Data.ByteString.Lazy.UTF8 as LU
 import           Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 
+import SESCreds
+
 -- ==========================================================
 -- | 将来的にはパッケージ化したいが、やり方がわからないのでこのファイルにベタ書きする
 -- SendEmail.hs
@@ -18,11 +20,11 @@ sendMailForUser :: Text -> Entity User -> Handler ()
 sendMailForUser result user = do
     let email = (userIdent . entityVal) user
     let ses = SES
-          { sesFrom = "rooooomania@gmail.com"
+          { sesFrom = siteAdmin
           , sesTo = [encodeUtf8 email]
-          , sesAccessKey = "AKIAJAHK2HTHNJB2CIPA"
-          , sesSecretKey = "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"
-          , sesRegion = "us-west-2"
+          , sesAccessKey = access
+          , sesSecretKey = secret
+          , sesRegion = region
           }
     h <- getYesod
     render <- getUrlRender

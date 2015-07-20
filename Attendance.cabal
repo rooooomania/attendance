@@ -23,6 +23,7 @@ library
                      Model.RequestDetail
                      Settings
                      Settings.StaticFiles
+                     SESCreds
                      Handler.Common
                      Handler.Root
                      Handler.Users
