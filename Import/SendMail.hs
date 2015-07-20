@@ -9,7 +9,7 @@ import System.Random (newStdGen)
 import qualified Data.ByteString.Lazy.UTF8 as LU
 import           Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 
-import SESCreds
+import SESCredential
 
 -- ==========================================================
 -- | 将来的にはパッケージ化したいが、やり方がわからないのでこのファイルにベタ書きする
