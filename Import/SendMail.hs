@@ -66,10 +66,10 @@ sendMailForApprove :: Entity User -> Handler ()
 sendMailForApprove approver = do
     let email = (userIdent . entityVal) approver
     let ses = SES
-              { sesFrom = "rooooomania@gmail.com"
+              { sesFrom = siteAdmin
               , sesTo = [encodeUtf8 email]
-              , sesAccessKey = "AKIAJAHK2HTHNJB2CIPA"
-              , sesSecretKey = "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"
+              , sesAccessKey = access
+              , sesSecretKey = secret
               , sesRegion = "us-west-2"
               }
     h <- getYesod
@@ -78,7 +78,7 @@ sendMailForApprove approver = do
     renderSendMailSES (appHttpManager h) ses Mail
         { mailHeaders =
             [("Subject", "no reply")]
-        , mailFrom = Address Nothing "rooooomania@gmail.com"
+        , mailFrom = Address Nothing $ decodeUtf8 siteAdmin
         , mailTo = [Address Nothing email]
         , mailCc = []
         , mailBcc = []
