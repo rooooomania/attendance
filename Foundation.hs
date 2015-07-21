@@ -167,6 +167,7 @@ permissionRequiredFor RobotsR _ = []
 permissionRequiredFor RootR _ = []
 permissionRequiredFor (CancelR _ _) _ = []
 permissionRequiredFor UsersR _ = [ViewUsers]
+permissionRequiredFor (ApproveR _ _) _ = []
 
 
 
