@@ -26,13 +26,16 @@ sendMailForUser result user = do
           , sesSecretKey = secret
           , sesRegion = region
           }
+
+    $logDebug email
+
     h <- getYesod
     render <- getUrlRender
     let rootr = render RootR
     renderSendMailSES (appHttpManager h) ses Mail
         { mailHeaders =
             [("Subject", "no reply")]
-        , mailFrom = Address Nothing "rooooomania@gmail.com"
+        , mailFrom = Address Nothing $ decodeUtf8 siteAdmin
         , mailTo = [Address Nothing email]
         , mailCc = []
         , mailBcc = []

@@ -168,7 +168,7 @@ permissionRequiredFor RootR _ = []
 permissionRequiredFor (CancelR _ _) _ = []
 permissionRequiredFor UsersR _ = [ViewUsers]
 permissionRequiredFor (ApproveR _ _) _ = []
-permissionRequiredFor (User _) _ = []
+permissionRequiredFor (UserR _) _ = []
 
 
 
