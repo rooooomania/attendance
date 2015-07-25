@@ -14,3 +14,5 @@ cabal.sandbox.config
 *.swp
 SESCreds.hs
 *.keter
+.stack-work*
+Attendance.sqlite3*
