@@ -169,6 +169,7 @@ permissionRequiredFor (CancelR _ _) _ = []
 permissionRequiredFor UsersR _ = [ViewUsers]
 permissionRequiredFor (ApproveR _ _) _ = []
 permissionRequiredFor (UserR _) _ = []
+permissionRequiredFor SearchR _ = [ViewRequests]
 
 
 
@@ -180,7 +181,6 @@ u `hasPermissionTo` (ViewApprover uid) =
 u `hasPermissionTo` ViewRequests
     | isAdmin (entityVal u) = return Authorized
     | otherwise = return $ Unauthorized ("このページは表示できません" :: Text)
-
 u `hasPermissionTo` (ViewRequest rid) =
     if isAdmin (entityVal u)
         then return Authorized
@@ -302,3 +302,4 @@ instance YesodBreadcrumbs App where
 
     breadcrumb (ApproveR uid hid) = return ("", Nothing)
     breadcrumb (RejectR uid hid) = return ("", Nothing)
+    breadcrumb SearchR = return ("休暇申請検索", Just RootR)

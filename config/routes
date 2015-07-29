@@ -32,3 +32,4 @@
 -- /application/app-search AppSerachR GET 管理者権限？
 /requests RequestsR GET POST
 /request/#HolidayRequestId RequestR GET PUT
+/requests/search SearchR GET

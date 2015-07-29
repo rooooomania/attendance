@@ -2,34 +2,33 @@ $if null reqs
     <div>
         <p> 申請はありません
 $else
-    <div .container>
-        <div .panel .panel-default>
-            <div .panel-heading>申請一覧
-            <div .panel-body>
-                <table .table .table-hover>
-                    <thead>
-                        <tr>
-                            <th>申請ID
-                            <th>申請者
-                            <th>日数
-                            <th>From
-                            <th>To
-                            <th>休暇カテゴリ
-                            <th>状況
-                            <th>申請日時
-                    <tbody>
-                    $forall Entity hid (HolidayRequest days from to _category status createdAt uid)<- reqs
-                        <tr>
-                            <td>
-                                <a href=@{RequestR hid}>#{show (fromSqlKey hid)}
-                            ^{widgetUserIdent uid}
-                            <td>#{days}
-                            <td>#{show from}
-                            <td>#{show to}
-                            <td>
-                            ^{widgetApproveStatus status}
-                            ^{widgetUTCTime createdAt}
-        <div>
-            <ul .pager>
-                ^{getNextPage (num - 1) Prev}
-                ^{getNextPage (num + 1) Next}
+    <div .panel .panel-default>
+        <div .panel-heading>申請一覧
+        <div .panel-body>
+            <table .table .table-hover>
+                <thead>
+                    <tr>
+                        <th>申請ID
+                        <th>申請者
+                        <th>日数
+                        <th>From
+                        <th>To
+                        <th>休暇カテゴリ
+                        <th>状況
+                        <th>申請日時
+                <tbody>
+                $forall Entity hid (HolidayRequest days from to _category status createdAt uid)<- reqs
+                    <tr>
+                        <td>
+                            <a href=@{RequestR hid}>#{show (fromSqlKey hid)}
+                        ^{widgetUserIdent uid}
+                        <td>#{days}
+                        <td>#{show from}
+                        <td>#{show to}
+                        <td>
+                        ^{widgetApproveStatus status}
+                        ^{widgetUTCTime createdAt}
+    <div>
+        <ul .pager>
+            ^{getNextPage (num - 1) Prev}
+            ^{getNextPage (num + 1) Next}

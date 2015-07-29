@@ -1,0 +1,17 @@
+$(function() {
+    var button = $('<button id=moriya type=submit class="btn btn-primary">added dynamicaly</button>');
+    $(".container").after(button);
+    $("#moriya").on('click', function(){
+        $.ajax({
+          url: '/requests',
+          type: 'GET',
+          headers: {
+            'accept': 'application/json'
+          },
+        }).done(function(data, status) {
+            // alert(JSON.parse(data));
+            console.log(data);
+        });
+    })
+
+});

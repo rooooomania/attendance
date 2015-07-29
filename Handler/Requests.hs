@@ -21,7 +21,6 @@ instance ToJSON HolidayRequest where
         , "user" .= holidayRequestUser
         ]
 
-
 -- | すべての休暇申請を取得するクエリ自体を、`widget`に含めているので再利用が簡単になる
 allRequests :: Handler [HolidayRequest]
 allRequests = do
@@ -128,7 +127,8 @@ requestHolidayForm = RequestForm
 -- | 休暇申請の一覧を表示する
 getRequestsR :: Handler TypedContent
 getRequestsR = do
-    hs <- allRequests
+    hs  <- allRequests
+    hs' <- runDB $ mapM reqestUsedAPI hs
     selectRep $ do
         provideRep $ do
             -- リクエストパラメータから指定されたページ番号を取得する
@@ -148,7 +148,7 @@ getRequestsR = do
 |]
         -- allRequests
                 requestsPerPage currentPage
-        provideJson hs
+        provideJson hs'
 
 -- | 特定のユーザに紐づく休暇申請を行う。残高も調整する
 -- | implement registration for RequestDetail.
@@ -201,6 +201,6 @@ requestHelper (uid, cid, from, to, aid, route) = do
         createRequestDetail days uid rid
         return rid
     rval <- runDB $ get404 rid
-    (myApprover $ Entity rid rval) >>= sendMailForApprove
+    -- (myApprover $ Entity rid rval) >>= sendMailForApprove
     setMessage $ toHtml $ "申請番号 " ++ show (fromSqlKey rid) ++ "を受け付けました"
     redirect route

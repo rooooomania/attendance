@@ -11,6 +11,11 @@ Flag library-only
     Description:   Build for use with "yesod devel"
     Default:       False
 
+Flag testing
+    Description:   Valid dummy authentication system
+    Default:       False
+
+
 library
     hs-source-dirs: ., app
     exposed-modules: Application
@@ -21,6 +26,7 @@ library
                      Import.GNationalHoliday
                      Model
                      Model.RequestDetail
+                     Model.HolidayRequest
                      Settings
                      Settings.StaticFiles
                      SESCreds
@@ -31,12 +37,15 @@ library
                      Handler.Requests
                      Handler.Request
                      Handler.Approver
+                     Handler.Search
 
     if flag(dev) || flag(library-only)
         cpp-options:   -DDEVELOPMENT
         ghc-options:   -Wall -fwarn-tabs -O0
     else
         ghc-options:   -Wall -fwarn-tabs -O2
+        if flag(testing)
+            cpp-options: -DTESTING
 
     extensions: TemplateHaskell
                 QuasiQuotes

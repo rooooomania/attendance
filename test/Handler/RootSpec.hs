@@ -1,7 +1,7 @@
 module Handler.RootSpec (spec) where
 
-import Prelude (head)
 import           Factories
+import           Prelude    (head)
 import           TestImport
 spec :: Spec
 spec = do

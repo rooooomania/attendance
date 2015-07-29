@@ -1,7 +1,7 @@
 module Model.RequestDetail where
 
-import Import.NoFoundation
-import Foundation
+import           Foundation
+import           Import.NoFoundation
 
 createRequestDetail :: [Day] -> UserId -> HolidayRequestId -> YesodDB App ()
 createRequestDetail days uid rid =

@@ -48,7 +48,11 @@ showPortalTab tab = do
                 <li>
                     <a href=@{ApproverR uid}>approver #
                         <span .badge>#{cnt}
-        $if userAdmin u
+        $if tab == Admin
+            $if userAdmin u
+            <li .active>
+                <a href=@{SearchR}>admin
+        $else
             <li>
-                <a href="#">admin
+                <a href=@{SearchR}>admin
 |]

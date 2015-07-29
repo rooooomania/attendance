@@ -18,7 +18,7 @@ import Yesod.Default.Config2       (applyEnvValue, configSettingsYml)
 import Yesod.Default.Util          (WidgetFileSettings, widgetFileNoReload,
                                     widgetFileReload)
 
-    
+
 -- | Runtime settings to configure this application. These settings can be
 -- loaded from various sources: defaults, environment variables, config files,
 -- theoretically even a database.
@@ -66,6 +66,12 @@ instance FromJSON AppSettings where
 #else
                 False
 #endif
+        let defaultTest =
+#if TESTING
+                True
+#else
+                False
+#endif
         appStaticDir              <- o .: "static-dir"
         appDatabaseConf           <- o .: "database"
         appRoot                   <- o .: "approot"
@@ -82,7 +88,7 @@ instance FromJSON AppSettings where
         appCopyright              <- o .: "copyright"
         appAnalytics              <- o .:? "analytics"
 
-        appAllowDummyAuth         <- o .:? "allow-dummy-auth" .!= defaultDev
+        appAllowDummyAuth         <- o .:? "allow-dummy-auth" .!= (defaultTest || defaultDev)
 
         return AppSettings {..}
 

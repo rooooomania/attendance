@@ -37,6 +37,7 @@ import Handler.User
 import Handler.Requests
 import Handler.Request
 import Handler.Approver
+import Handler.Search
 -- This line actually creates our YesodDispatch instance. It is the second half
 -- of the call to mkYesodData which occurs in Foundation.hs. Please see the
 -- comments there for more details.
